@@ -1,0 +1,21 @@
+{
+  "name": "crm-ideali",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3100",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3100",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test:unidade": "vitest run testes/unidade",
+    "test:integracao": "vitest run testes/integracao",
+    "test:telas": "playwright test",
+    "test": "vitest run",
+    "db:migrate": "node --conditions=react-server --import tsx scripts/migrar.ts"
+  }
+}
