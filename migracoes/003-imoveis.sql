@@ -1,0 +1,5 @@
+CREATE SEQUENCE codigo_imovel;
+CREATE TABLE imoveis(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),codigo text NOT NULL UNIQUE DEFAULT ('IDE-'||lpad(nextval('codigo_imovel')::text,6,'0')),responsavel_id text NOT NULL REFERENCES membros(id),situacao text NOT NULL DEFAULT 'rascunho' CHECK(situacao IN ('rascunho','disponivel','reservado','vendido','arquivado')),versao integer NOT NULL DEFAULT 1 CHECK(versao>0),campos jsonb NOT NULL CHECK(jsonb_typeof(campos)='object' AND length(campos->>'cidade')>=2),capa_id uuid,atualizado_em timestamptz NOT NULL DEFAULT now());
+CREATE TABLE imoveis_internos(imovel_id uuid PRIMARY KEY REFERENCES imoveis(id),dados jsonb NOT NULL);
+CREATE INDEX imoveis_responsavel ON imoveis(responsavel_id,atualizado_em,id);
+CREATE INDEX imoveis_situacao ON imoveis(situacao,atualizado_em,id);

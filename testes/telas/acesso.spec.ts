@@ -1,0 +1,1 @@
+import {test,expect} from '@playwright/test';test('entrada oferece conta individual e recuperação',async({page})=>{await page.goto('/entrar');await expect(page.getByLabel('E-mail')).toBeVisible();await expect(page.getByLabel('Senha',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Esqueci minha senha'})).toBeVisible()});

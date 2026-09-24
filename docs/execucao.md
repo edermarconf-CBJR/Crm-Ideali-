@@ -29,3 +29,7 @@ Ruling: PostgreSQL 17.10 portátil substitui o contêiner local ausente — banc
 Ruling: testes iniciais chamam os handlers HTTP reais com Requests e banco real; execução do navegador fica no conjunto Playwright — custo se errado: diferenças de transporte serão cobertas pelas jornadas do navegador.
 Tarefa 2: em execução.
 Tarefa 2: núcleo de convites testado (9/9 no conjunto, TypeScript sem erros). Telas e casos de recuperação serão concluídos antes do fechamento. Tarefa 3 em execução.
+Tarefas 3–6: serviços de catálogo, gravação, arquivos e equipe implementados; conjunto 22/22 passou, TypeScript passou. Interfaces aguardam a tarefa 7 antes do fechamento.
+Ruling: SeaweedFS 4.47 local usa API S3 privada no lugar do MinIO ausente — hash do binário oficial conferido, leitura anônima recusada no teste; custo se errado: trocar somente o serviço de teste, contrato S3 preservado.
+Ruling: obterImovel recebe consulta opcional para reler alterações dentro da transação sem abrir conexão externa — evita ler dados ainda não confirmados; custo se errado: rever um parâmetro interno.
+Tarefa 7: em execução; teste de entrada escrito antes da tela.

@@ -1,0 +1,3 @@
+CREATE TABLE arquivos(id uuid PRIMARY KEY,imovel_id uuid NOT NULL REFERENCES imoveis(id),categoria text NOT NULL CHECK(categoria IN ('foto','documento')),chave text NOT NULL UNIQUE,nome text NOT NULL,mime text NOT NULL,tamanho integer NOT NULL CHECK(tamanho>0),ordem integer NOT NULL,hash text NOT NULL,criado_em timestamptz NOT NULL DEFAULT now(),removido_em timestamptz);
+CREATE INDEX arquivos_imovel ON arquivos(imovel_id,categoria,removido_em);
+ALTER TABLE imoveis ADD CONSTRAINT capa_arquivo FOREIGN KEY(capa_id) REFERENCES arquivos(id) DEFERRABLE INITIALLY DEFERRED;

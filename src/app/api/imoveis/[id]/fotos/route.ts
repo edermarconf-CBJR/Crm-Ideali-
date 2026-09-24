@@ -1,0 +1,1 @@
+import {executar,json} from '@/servidor/http';import {organizarFotos} from '@/arquivos/servico';export async function POST(req:Request,c:{params:Promise<{id:string}>}){return executar(req,async a=>json(await organizarFotos(a,(await c.params).id,await req.json())))}
