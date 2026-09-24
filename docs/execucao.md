@@ -23,3 +23,8 @@ Ruling: helpers da habilidade reconhecem cabeçalhos ingleses “Task”, mas o 
 - Tarefas 2–8: pendentes.
 
 Não há teste de produto concluído.
+
+Tarefa 1: fundação verificada — 8/8 testes passaram; build Next e TypeScript passaram. Gateway teve 7 falhas observadas antes da implementação.
+Ruling: PostgreSQL 17.10 portátil substitui o contêiner local ausente — banco real, isolado e ligado somente a 127.0.0.1; custo se errado: revisar inicialização local, sem mudar o modelo de produção.
+Ruling: testes iniciais chamam os handlers HTTP reais com Requests e banco real; execução do navegador fica no conjunto Playwright — custo se errado: diferenças de transporte serão cobertas pelas jornadas do navegador.
+Tarefa 2: em execução.

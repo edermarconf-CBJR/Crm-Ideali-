@@ -17,5 +17,31 @@
     "test:telas": "playwright test",
     "test": "vitest run",
     "db:migrate": "node --conditions=react-server --import tsx scripts/migrar.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1138.0",
+    "better-auth": "1.7.5",
+    "next": "16.3.6",
+    "nodemailer": "10.0.10",
+    "pg": "8.23.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "sharp": "0.35.4",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.13.6",
+    "@types/nodemailer": "8.0.2",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "embedded-postgres": "17.10.0-beta.17",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.1"
   }
 }
