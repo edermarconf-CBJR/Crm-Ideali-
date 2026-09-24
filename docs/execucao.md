@@ -33,3 +33,15 @@ Tarefas 3–6: serviços de catálogo, gravação, arquivos e equipe implementad
 Ruling: SeaweedFS 4.47 local usa API S3 privada no lugar do MinIO ausente — hash do binário oficial conferido, leitura anônima recusada no teste; custo se errado: trocar somente o serviço de teste, contrato S3 preservado.
 Ruling: obterImovel recebe consulta opcional para reler alterações dentro da transação sem abrir conexão externa — evita ler dados ainda não confirmados; custo se errado: rever um parâmetro interno.
 Tarefa 7: em execução; teste de entrada escrito antes da tela.
+
+## Verificação em 24/09/2026
+
+- Tarefas 1–6: serviços e telas integrados; 25/25 testes de unidade/integração passaram no conjunto de 12 arquivos, incluindo restauração e 12º integrante. Dois testes adicionais do limite JSON passaram isoladamente; conjunto ampliado será executado no fechamento.
+- Tarefa 7: seis jornadas Playwright passaram (30,5 s), incluindo larguras 320/390/1440, login real, cadastro, falha de rede, conflito entre abas, foto, convite, transferência, desativação e saída. Capturas inspecionadas; isso não constitui avaliação humana da equipe.
+- Tarefa 8: backup/restauração REAL passou com pg_dump/pg_restore 17.11, servidor PostgreSQL 17.10, três integrantes/imóveis, duas fotos, um documento, vínculos/histórico e sessões zeradas. README, Dockerfile, roteiro de avaliação e semente fictícia preparados. Empacotamento e revisão final pendentes.
+- O cabeçalho anterior de situação é histórico do início; prevalece este registro de 24/09.
+
+Ruling: responsabilidade inclui responsavelNome no DTO — necessário mostrar responsável no catálogo sem expor contatos; custo se errado: ajustar contrato interno antes da integração pública.
+Ruling: ferramentas PostgreSQL 17.11 da distribuição oficial EDB fazem backup do servidor 17.10 — compatibilidade de mesma versão principal e restauração real confirmadas; custo se errado: alinhar ferramentas ao servidor. Hash calculado localmente, sem alegar hash independente publicado.
+Ruling: testes de telas toleram 15 segundos por expectativa no servidor de desenvolvimento — compilação inicial passou de cinco segundos; custo se errado: regressões de latência exigem medição no piloto, ainda não coberta.
+Ruling: Dockerfile é fornecido, mas Docker não foi executado nesta máquina — entrega verificada pelo servidor Node local; custo se errado: adaptação da imagem na preparação da hospedagem.

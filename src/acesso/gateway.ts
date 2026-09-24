@@ -1,2 +1,22 @@
-const metodos:Record<string,string>={'sign-in/email':'POST','sign-out':'POST','get-session':'GET','request-password-reset':'POST','reset-password':'POST','change-password':'POST'};
-export function criarGateway(handler:(req:Request)=>Promise<Response>,origem:string){return async(req:Request)=>{const caminho=new URL(req.url).pathname.slice('/api/auth/'.length);if(!metodos[caminho])return new Response(null,{status:404});if(metodos[caminho]!==req.method)return new Response(null,{status:405});if(req.method!=='GET'&&req.headers.get('origin')!==origem)return new Response(null,{status:403});return handler(req)}}
+const metodos: Record<string, string> = {
+  "sign-in/email": "POST",
+  "sign-out": "POST",
+  "get-session": "GET",
+  "request-password-reset": "POST",
+  "reset-password": "POST",
+  "change-password": "POST",
+};
+export function criarGateway(
+  handler: (req: Request) => Promise<Response>,
+  origem: string,
+) {
+  return async (req: Request) => {
+    const caminho = new URL(req.url).pathname.slice("/api/auth/".length);
+    if (!metodos[caminho]) return new Response(null, { status: 404 });
+    if (metodos[caminho] !== req.method)
+      return new Response(null, { status: 405 });
+    if (req.method !== "GET" && req.headers.get("origin") !== origem)
+      return new Response(null, { status: 403 });
+    return handler(req);
+  };
+}

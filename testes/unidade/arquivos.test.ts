@@ -1,1 +1,12 @@
-import {test,expect} from 'vitest';import {validarArquivo} from '../../src/arquivos/validacao';test('não aceita HTML disfarçado de foto',async()=>{await expect(validarArquivo({categoria:'foto',nome:'foto.jpg',mimeInformado:'image/jpeg',bytes:new TextEncoder().encode('<script>alert(1)</script>')})).rejects.toMatchObject({codigo:'INVALIDO'})});
+import { test, expect } from "vitest";
+import { validarArquivo } from "../../src/arquivos/validacao";
+test("não aceita HTML disfarçado de foto", async () => {
+  await expect(
+    validarArquivo({
+      categoria: "foto",
+      nome: "foto.jpg",
+      mimeInformado: "image/jpeg",
+      bytes: new TextEncoder().encode("<script>alert(1)</script>"),
+    }),
+  ).rejects.toMatchObject({ codigo: "INVALIDO" });
+});

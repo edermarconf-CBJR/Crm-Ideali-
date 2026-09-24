@@ -1,1 +1,18 @@
-import {defineConfig} from '@playwright/test';import {loadEnvFile} from 'node:process';loadEnvFile('.env.local');process.env.DATABASE_URL=process.env.TEST_DATABASE_URL;process.env.APP_ORIGIN='http://127.0.0.1:3101';export default defineConfig({testDir:'testes/telas',workers:1,timeout:30000,expect:{timeout:5000},use:{baseURL:process.env.APP_ORIGIN,channel:'chrome',headless:true,screenshot:'only-on-failure'},reporter:'list'});
+import { defineConfig } from "@playwright/test";
+import { loadEnvFile } from "node:process";
+loadEnvFile(".env.local");
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+process.env.APP_ORIGIN = "http://127.0.0.1:3101";
+export default defineConfig({
+  testDir: "testes/telas",
+  workers: 1,
+  timeout: 30000,
+  expect: { timeout: 15000 },
+  use: {
+    baseURL: process.env.APP_ORIGIN,
+    channel: "chrome",
+    headless: true,
+    screenshot: "only-on-failure",
+  },
+  reporter: "list",
+});

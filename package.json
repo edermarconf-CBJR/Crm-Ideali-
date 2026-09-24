@@ -12,11 +12,16 @@
     "start": "next start --hostname 127.0.0.1 --port 3100",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:unidade": "vitest run testes/unidade",
-    "test:integracao": "vitest run testes/integracao",
-    "test:telas": "playwright test",
-    "test": "vitest run",
-    "db:migrate": "node --conditions=react-server --import tsx scripts/migrar.ts"
+    "test:unidade": "node scripts/testar.mjs testes/unidade",
+    "test:integracao": "node scripts/testar.mjs testes/integracao",
+    "test:telas": "node --conditions=react-server node_modules/@playwright/test/cli.js test",
+    "test": "node scripts/testar.mjs",
+    "db:migrate": "node --conditions=react-server --import tsx scripts/migrar.ts",
+    "backup": "node --conditions=react-server --import tsx scripts/backup.ts",
+    "restaurar": "node --conditions=react-server --import tsx scripts/restaurar.ts",
+    "arquivos:limpar": "node --conditions=react-server --import tsx scripts/limpar-arquivos.ts",
+    "acesso:gestor": "node --conditions=react-server --import tsx scripts/criar-primeiro-gestor.ts",
+    "demonstracao": "node --conditions=react-server --import tsx scripts/preparar-demonstracao.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1138.0",
@@ -40,6 +45,7 @@
     "embedded-postgres": "17.10.0-beta.17",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.6",
+    "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.1"

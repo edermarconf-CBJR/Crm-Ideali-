@@ -1,2 +1,76 @@
-import {test,expect,afterAll} from 'vitest';import {randomUUID} from 'node:crypto';import sharp from 'sharp';import {criarCenario} from '../apoio/cenario';import {banco} from '../../src/servidor/banco';import {criarImovel,trocarSituacao} from '../../src/imoveis/gravacao';import {adicionarArquivo,lerArquivo,removerArquivo} from '../../src/arquivos/servico';afterAll(()=>banco.end());
-test('foto compartilhada e documento privado têm acessos diferentes',async()=>{const c=await criarCenario();try{const a={id:c.corretorA.id,perfil:'corretor' as const};const b={id:c.corretorB.id,perfil:'corretor' as const};let i=await criarImovel(a,{operacaoId:randomUUID(),tipo:'casa',cidade:'Teste'});const bytes=await sharp({create:{width:10,height:10,channels:3,background:'#333'}}).jpeg().toBuffer();i=await adicionarArquivo(a,i.id,{operacaoId:randomUUID(),versao:i.versao,categoria:'foto',nome:'foto.jpg',mimeInformado:'image/jpeg',bytes});const foto=i.fotos[0].id;i=await adicionarArquivo(a,i.id,{operacaoId:randomUUID(),versao:i.versao,categoria:'documento',nome:'teste.pdf',mimeInformado:'application/pdf',bytes:new TextEncoder().encode('%PDF-1.4\n% Documento sintético\n%%EOF')});const doc=i.documentos[0].id;i=await trocarSituacao(a,i.id,{operacaoId:randomUUID(),versao:i.versao,situacao:'disponivel'});expect((await lerArquivo(b,foto)).mime).toBe('image/jpeg');await expect(lerArquivo(b,doc)).rejects.toMatchObject({codigo:'NAO_ENCONTRADO'});const chave=(await banco.query('SELECT chave FROM arquivos WHERE id=$1',[doc])).rows[0].chave;expect((await fetch(process.env.S3_ENDPOINT+'/'+process.env.S3_BUCKET+'/'+chave)).status).toBeGreaterThanOrEqual(400);i=await removerArquivo(a,foto,{operacaoId:randomUUID(),versao:i.versao});expect(i.capaId).toBeNull();await expect(lerArquivo(a,foto)).rejects.toMatchObject({codigo:'NAO_ENCONTRADO'})}finally{await c.limpar()}})
+import { test, expect, afterAll } from "vitest";
+import { randomUUID } from "node:crypto";
+import sharp from "sharp";
+import { criarCenario } from "../apoio/cenario";
+import { banco } from "../../src/servidor/banco";
+import { criarImovel, trocarSituacao } from "../../src/imoveis/gravacao";
+import {
+  adicionarArquivo,
+  lerArquivo,
+  removerArquivo,
+} from "../../src/arquivos/servico";
+afterAll(() => banco.end());
+test("foto compartilhada e documento privado têm acessos diferentes", async () => {
+  const c = await criarCenario();
+  try {
+    const a = { id: c.corretorA.id, perfil: "corretor" as const };
+    const b = { id: c.corretorB.id, perfil: "corretor" as const };
+    let i = await criarImovel(a, {
+      operacaoId: randomUUID(),
+      tipo: "casa",
+      cidade: "Teste",
+    });
+    const bytes = await sharp({
+      create: { width: 10, height: 10, channels: 3, background: "#333" },
+    })
+      .jpeg()
+      .toBuffer();
+    i = await adicionarArquivo(a, i.id, {
+      operacaoId: randomUUID(),
+      versao: i.versao,
+      categoria: "foto",
+      nome: "foto.jpg",
+      mimeInformado: "image/jpeg",
+      bytes,
+    });
+    const foto = i.fotos[0].id;
+    i = await adicionarArquivo(a, i.id, {
+      operacaoId: randomUUID(),
+      versao: i.versao,
+      categoria: "documento",
+      nome: "teste.pdf",
+      mimeInformado: "application/pdf",
+      bytes: new TextEncoder().encode("%PDF-1.4\n% Documento sintético\n%%EOF"),
+    });
+    const doc = i.documentos[0].id;
+    i = await trocarSituacao(a, i.id, {
+      operacaoId: randomUUID(),
+      versao: i.versao,
+      situacao: "disponivel",
+    });
+    expect((await lerArquivo(b, foto)).mime).toBe("image/jpeg");
+    await expect(lerArquivo(b, doc)).rejects.toMatchObject({
+      codigo: "NAO_ENCONTRADO",
+    });
+    const chave = (
+      await banco.query("SELECT chave FROM arquivos WHERE id=$1", [doc])
+    ).rows[0].chave;
+    expect(
+      (
+        await fetch(
+          process.env.S3_ENDPOINT + "/" + process.env.S3_BUCKET + "/" + chave,
+        )
+      ).status,
+    ).toBeGreaterThanOrEqual(400);
+    i = await removerArquivo(a, foto, {
+      operacaoId: randomUUID(),
+      versao: i.versao,
+    });
+    expect(i.capaId).toBeNull();
+    await expect(lerArquivo(a, foto)).rejects.toMatchObject({
+      codigo: "NAO_ENCONTRADO",
+    });
+  } finally {
+    await c.limpar();
+  }
+});

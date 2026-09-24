@@ -1,6 +1,176 @@
-import 'server-only';import {z} from 'zod';import {transacao,type Tx} from '../servidor/banco';import {bloquearAtor,exigirGestor} from '../acesso/ator';import {executarUmaVez} from '../servidor/operacoes';import {ErroDominio} from '../compartilhado/erros';import type {Ator,CriarImovel,SalvarImovel,TrocarSituacao,ImovelDetalhe} from '../compartilhado/contratos';import {obterImovel} from './consulta';import {camposIniciais,internosVazios} from './padroes';import {novoSchema,salvarSchema,situacaoSchema} from './validacao';
-export async function registrar(tx:Tx,a:Ator,id:string,acao:string,campos:string[]=[],anterior:string|null=null,novo:string|null=null){await tx.query('INSERT INTO historico(autor_id,entidade_id,acao,campos,anterior_id,novo_id) VALUES($1,$2,$3,$4,$5,$6)',[a.id,id,acao,campos,anterior,novo])}
-export async function bloquearImovel(tx:Tx,a:Ator,id:string,versao:number){if(!z.uuid().safeParse(id).success)throw new ErroDominio('NAO_ENCONTRADO','Imóvel não encontrado.');await tx.query('SELECT id FROM imoveis WHERE id=$1 FOR UPDATE',[id]);const i=await obterImovel(a,id,tx);if(!i.podeEditar)throw new ErroDominio('PROIBIDO','Apenas o responsável ou um gestor pode alterar este imóvel.');if(i.versao!==versao)throw new ErroDominio('CONFLITO','Este imóvel foi alterado por outra pessoa. Revise os dados atuais.');return i}
-export async function criarImovel(ator:Ator,entrada:CriarImovel):Promise<ImovelDetalhe>{const d=novoSchema.parse(entrada);return transacao(async tx=>{const destino=d.responsavelId??ator.id;await tx.query('SELECT id FROM membros WHERE id=ANY($1::text[]) ORDER BY id FOR SHARE',[[ator.id,destino]]);const a=await bloquearAtor(tx,ator.id);if(destino!==a.id)exigirGestor(a);if(!(await tx.query("SELECT id FROM membros WHERE id=$1 AND estado='ativo'",[destino])).rowCount)throw new ErroDominio('INVALIDO','Escolha um responsável ativo.');return executarUmaVez(tx,a.id,d.operacaoId,'criar-imovel',null,d,async()=>{const r=await tx.query('INSERT INTO imoveis(responsavel_id,campos) VALUES($1,$2) RETURNING id',[destino,camposIniciais(d.tipo,d.cidade)]);const id=r.rows[0].id;await tx.query('INSERT INTO imoveis_internos VALUES($1,$2)',[id,internosVazios]);await registrar(tx,a,id,'cadastro');const valor=await obterImovel(a,id,tx);return {resultadoId:id,versao:valor.versao,valor}},id=>obterImovel(a,id,tx))})}
-export async function salvarImovel(ator:Ator,id:string,entrada:SalvarImovel){const d=salvarSchema.parse(entrada);return transacao(async tx=>{const a=await bloquearAtor(tx,ator.id);return executarUmaVez(tx,a.id,d.operacaoId,'salvar-imovel',id,d,async()=>{const atual=await bloquearImovel(tx,a,id,d.versao);await tx.query('UPDATE imoveis SET campos=$1,versao=versao+1,atualizado_em=now() WHERE id=$2',[d.campos,id]);await tx.query('UPDATE imoveis_internos SET dados=$1 WHERE imovel_id=$2',[d.internos,id]);const campos=Object.keys(d.campos).filter(k=>JSON.stringify(d.campos[k as keyof typeof d.campos])!==JSON.stringify(atual[k as keyof typeof atual]));if(JSON.stringify(atual.internos)!==JSON.stringify(d.internos))campos.push('dados internos');await registrar(tx,a,id,'edição',campos);const valor=await obterImovel(a,id,tx);return {resultadoId:id,versao:valor.versao,valor}},id=>obterImovel(a,id,tx))})}
-export async function trocarSituacao(ator:Ator,id:string,entrada:TrocarSituacao){const d=situacaoSchema.parse(entrada);return transacao(async tx=>{const a=await bloquearAtor(tx,ator.id);return executarUmaVez(tx,a.id,d.operacaoId,'situacao',id,d,async()=>{const atual=await bloquearImovel(tx,a,id,d.versao);await tx.query('UPDATE imoveis SET situacao=$1,versao=versao+1,atualizado_em=now() WHERE id=$2',[d.situacao,id]);await registrar(tx,a,id,'situação',['situacao'],atual.situacao,d.situacao);const valor=await obterImovel(a,id,tx);return {resultadoId:id,versao:valor.versao,valor}},id=>obterImovel(a,id,tx))})}
+import "server-only";
+import { z } from "zod";
+import { transacao, type Tx } from "../servidor/banco";
+import { bloquearAtor, exigirGestor } from "../acesso/ator";
+import { executarUmaVez } from "../servidor/operacoes";
+import { ErroDominio } from "../compartilhado/erros";
+import type {
+  Ator,
+  CriarImovel,
+  SalvarImovel,
+  TrocarSituacao,
+  ImovelDetalhe,
+} from "../compartilhado/contratos";
+import { obterImovel } from "./consulta";
+import { camposIniciais, internosVazios } from "./padroes";
+import { novoSchema, salvarSchema, situacaoSchema } from "./validacao";
+export async function registrar(
+  tx: Tx,
+  a: Ator,
+  id: string,
+  acao: string,
+  campos: string[] = [],
+  anterior: string | null = null,
+  novo: string | null = null,
+) {
+  await tx.query(
+    "INSERT INTO historico(autor_id,entidade_id,acao,campos,anterior_id,novo_id) VALUES($1,$2,$3,$4,$5,$6)",
+    [a.id, id, acao, campos, anterior, novo],
+  );
+}
+export async function bloquearImovel(
+  tx: Tx,
+  a: Ator,
+  id: string,
+  versao: number,
+) {
+  if (!z.uuid().safeParse(id).success)
+    throw new ErroDominio("NAO_ENCONTRADO", "Imóvel não encontrado.");
+  await tx.query("SELECT id FROM imoveis WHERE id=$1 FOR UPDATE", [id]);
+  const i = await obterImovel(a, id, tx);
+  if (!i.podeEditar)
+    throw new ErroDominio(
+      "PROIBIDO",
+      "Apenas o responsável ou um gestor pode alterar este imóvel.",
+    );
+  if (i.versao !== versao)
+    throw new ErroDominio(
+      "CONFLITO",
+      "Este imóvel foi alterado por outra pessoa. Revise os dados atuais.",
+    );
+  return i;
+}
+export async function criarImovel(
+  ator: Ator,
+  entrada: CriarImovel,
+): Promise<ImovelDetalhe> {
+  const d = novoSchema.parse(entrada);
+  return transacao(async (tx) => {
+    const destino = d.responsavelId ?? ator.id;
+    await tx.query(
+      "SELECT id FROM membros WHERE id=ANY($1::text[]) ORDER BY id FOR SHARE",
+      [[ator.id, destino]],
+    );
+    const a = await bloquearAtor(tx, ator.id);
+    if (destino !== a.id) exigirGestor(a);
+    if (
+      !(
+        await tx.query(
+          "SELECT id FROM membros WHERE id=$1 AND estado='ativo'",
+          [destino],
+        )
+      ).rowCount
+    )
+      throw new ErroDominio("INVALIDO", "Escolha um responsável ativo.");
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "criar-imovel",
+      null,
+      d,
+      async () => {
+        const r = await tx.query(
+          "INSERT INTO imoveis(responsavel_id,campos) VALUES($1,$2) RETURNING id",
+          [destino, camposIniciais(d.tipo, d.cidade)],
+        );
+        const id = r.rows[0].id;
+        await tx.query("INSERT INTO imoveis_internos VALUES($1,$2)", [
+          id,
+          internosVazios,
+        ]);
+        await registrar(tx, a, id, "cadastro");
+        const valor = await obterImovel(a, id, tx);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => obterImovel(a, id, tx),
+    );
+  });
+}
+export async function salvarImovel(
+  ator: Ator,
+  id: string,
+  entrada: SalvarImovel,
+) {
+  const d = salvarSchema.parse(entrada);
+  return transacao(async (tx) => {
+    const a = await bloquearAtor(tx, ator.id);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "salvar-imovel",
+      id,
+      d,
+      async () => {
+        const atual = await bloquearImovel(tx, a, id, d.versao);
+        await tx.query(
+          "UPDATE imoveis SET campos=$1,versao=versao+1,atualizado_em=now() WHERE id=$2",
+          [d.campos, id],
+        );
+        await tx.query(
+          "UPDATE imoveis_internos SET dados=$1 WHERE imovel_id=$2",
+          [d.internos, id],
+        );
+        const campos = Object.keys(d.campos).filter(
+          (k) =>
+            JSON.stringify(d.campos[k as keyof typeof d.campos]) !==
+            JSON.stringify(atual[k as keyof typeof atual]),
+        );
+        if (JSON.stringify(atual.internos) !== JSON.stringify(d.internos))
+          campos.push("dados internos");
+        await registrar(tx, a, id, "edição", campos);
+        const valor = await obterImovel(a, id, tx);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => obterImovel(a, id, tx),
+    );
+  });
+}
+export async function trocarSituacao(
+  ator: Ator,
+  id: string,
+  entrada: TrocarSituacao,
+) {
+  const d = situacaoSchema.parse(entrada);
+  return transacao(async (tx) => {
+    const a = await bloquearAtor(tx, ator.id);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "situacao",
+      id,
+      d,
+      async () => {
+        const atual = await bloquearImovel(tx, a, id, d.versao);
+        await tx.query(
+          "UPDATE imoveis SET situacao=$1,versao=versao+1,atualizado_em=now() WHERE id=$2",
+          [d.situacao, id],
+        );
+        await registrar(
+          tx,
+          a,
+          id,
+          "situação",
+          ["situacao"],
+          atual.situacao,
+          d.situacao,
+        );
+        const valor = await obterImovel(a, id, tx);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => obterImovel(a, id, tx),
+    );
+  });
+}

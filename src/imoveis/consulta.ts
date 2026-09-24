@@ -1,9 +1,164 @@
-import 'server-only';import type {Pool} from 'pg';import {z} from 'zod';import {banco} from '../servidor/banco';import type {Ator,CamposImovel,DadosInternos,ImovelBase,ImovelDetalhe,Pagina,FiltroImoveis,Historico} from '../compartilhado/contratos';import {ErroDominio} from '../compartilhado/erros';import {podeConsultar,podeEditar} from './politica';
-export type Consulta=Pick<Pool,'query'>;
-export const selecionar='id,codigo,responsavel_id,situacao,versao,campos,capa_id,atualizado_em';
-type Linha={id:string;codigo:string;responsavel_id:string;situacao:ImovelBase['situacao'];versao:number;campos:CamposImovel;capa_id:string|null;atualizado_em:Date};
-export function mapear(i:Linha):ImovelBase{return {...i.campos,id:i.id,codigo:i.codigo,responsavelId:i.responsavel_id,situacao:i.situacao,versao:i.versao,capaId:i.capa_id,atualizadoEm:i.atualizado_em.toISOString()}}
-export async function obterImovel(a:Ator,id:string,q:Consulta=banco):Promise<ImovelDetalhe>{if(!z.uuid().safeParse(id).success)throw new ErroDominio('NAO_ENCONTRADO','Imóvel não encontrado.');const r=await q.query('SELECT '+selecionar+' FROM imoveis WHERE id=$1',[id]);if(!r.rows[0])throw new ErroDominio('NAO_ENCONTRADO','Imóvel não encontrado.');const i=mapear(r.rows[0]);if(!podeConsultar(a,i))throw new ErroDominio('NAO_ENCONTRADO','Imóvel não encontrado.');const editar=podeEditar(a,i);const internos=editar?(await q.query('SELECT dados FROM imoveis_internos WHERE imovel_id=$1',[id])).rows[0]?.dados as DadosInternos:null;const arquivos=(await q.query('SELECT id,nome,categoria,mime,tamanho,ordem FROM arquivos WHERE imovel_id=$1 AND removido_em IS NULL ORDER BY ordem,id',[id])).rows;return {...i,internos:internos??null,podeEditar:editar,fotos:arquivos.filter(f=>f.categoria==='foto'),documentos:editar?arquivos.filter(f=>f.categoria==='documento'):[]}}
-const filtros=z.object({busca:z.string().max(160).optional(),cidade:z.string().max(120).optional(),bairro:z.string().max(120).optional(),tipo:z.enum(['casa','apartamento','terreno','comercial','rural','outro']).optional(),situacao:z.enum(['rascunho','disponivel','reservado','vendido','arquivado']).optional(),responsavelId:z.string().max(100).optional(),pagina:z.coerce.number().int().min(1).max(100000).default(1)});
-export async function listarImoveis(a:Ator,entrada:FiltroImoveis):Promise<Pagina<ImovelBase>>{const f=filtros.parse(entrada);const parametros:unknown[]=[a.id,a.perfil];const condicoes=["($2='gestor' OR responsavel_id=$1 OR situacao IN ('disponivel','reservado'))"];const add=(sql:string,v:unknown)=>{parametros.push(v);condicoes.push(sql.replace('?',String(parametros.length)))};for(const chave of ['cidade','bairro','tipo'] as const)if(f[chave])add("campos->>'"+chave+"' ILIKE $?",f[chave]!.replace(/[\\%_]/g,'\\$&'));if(f.situacao)add('situacao=$?',f.situacao);if(f.responsavelId)add('responsavel_id=$?',f.responsavelId);if(f.busca){parametros.push('%'+f.busca.replace(/[\\%_]/g,'\\$&')+'%');const n=parametros.length;condicoes.push("(codigo ILIKE $"+n+" OR campos->>'titulo' ILIKE $"+n+" OR campos->>'cidade' ILIKE $"+n+" OR campos->>'bairro' ILIKE $"+n+")")}const where=' WHERE '+condicoes.join(' AND ');const total=Number((await banco.query('SELECT count(*) FROM imoveis'+where,parametros)).rows[0].count);parametros.push((f.pagina-1)*30);const r=await banco.query('SELECT '+selecionar+' FROM imoveis'+where+' ORDER BY atualizado_em DESC,id DESC LIMIT 30 OFFSET $'+parametros.length,parametros);return {itens:r.rows.map(mapear),pagina:f.pagina,total}}
-export async function listarHistorico(a:Ator,id:string):Promise<Historico[]>{const i=await obterImovel(a,id);if(!i.podeEditar)throw new ErroDominio('NAO_ENCONTRADO','Histórico não encontrado.');const r=await banco.query('SELECT h.id,u.name AS "autorNome",h.acao,h.data,h.campos AS "camposAlterados",h.anterior_id AS "anteriorId",h.novo_id AS "novoId" FROM historico h LEFT JOIN "user" u ON u.id=h.autor_id WHERE entidade_id=$1 ORDER BY data DESC,id DESC LIMIT 100',[id]);return r.rows}
+import "server-only";
+import type { Pool } from "pg";
+import { z } from "zod";
+import { banco } from "../servidor/banco";
+import type {
+  Ator,
+  CamposImovel,
+  DadosInternos,
+  ImovelBase,
+  ImovelDetalhe,
+  Pagina,
+  FiltroImoveis,
+  Historico,
+} from "../compartilhado/contratos";
+import { ErroDominio } from "../compartilhado/erros";
+import { podeConsultar, podeEditar } from "./politica";
+export type Consulta = Pick<Pool, "query">;
+export const selecionar =
+  'id,codigo,responsavel_id,situacao,versao,campos,capa_id,atualizado_em,(SELECT name FROM "user" WHERE "user".id=imoveis.responsavel_id) AS responsavel_nome';
+type Linha = {
+  id: string;
+  codigo: string;
+  responsavel_id: string;
+  responsavel_nome: string;
+  situacao: ImovelBase["situacao"];
+  versao: number;
+  campos: CamposImovel;
+  capa_id: string | null;
+  atualizado_em: Date;
+};
+export function mapear(i: Linha): ImovelBase {
+  return {
+    ...i.campos,
+    id: i.id,
+    codigo: i.codigo,
+    responsavelId: i.responsavel_id,
+    responsavelNome: i.responsavel_nome,
+    situacao: i.situacao,
+    versao: i.versao,
+    capaId: i.capa_id,
+    atualizadoEm: i.atualizado_em.toISOString(),
+  };
+}
+export async function obterImovel(
+  a: Ator,
+  id: string,
+  q: Consulta = banco,
+): Promise<ImovelDetalhe> {
+  if (!z.uuid().safeParse(id).success)
+    throw new ErroDominio("NAO_ENCONTRADO", "Imóvel não encontrado.");
+  const r = await q.query(
+    "SELECT " + selecionar + " FROM imoveis WHERE id=$1",
+    [id],
+  );
+  if (!r.rows[0])
+    throw new ErroDominio("NAO_ENCONTRADO", "Imóvel não encontrado.");
+  const i = mapear(r.rows[0]);
+  if (!podeConsultar(a, i))
+    throw new ErroDominio("NAO_ENCONTRADO", "Imóvel não encontrado.");
+  const editar = podeEditar(a, i);
+  const internos = editar
+    ? ((
+        await q.query("SELECT dados FROM imoveis_internos WHERE imovel_id=$1", [
+          id,
+        ])
+      ).rows[0]?.dados as DadosInternos)
+    : null;
+  const arquivos = (
+    await q.query(
+      "SELECT id,nome,categoria,mime,tamanho,ordem FROM arquivos WHERE imovel_id=$1 AND removido_em IS NULL AND ($2 OR categoria=\'foto\') ORDER BY ordem,id",
+      [id, editar],
+    )
+  ).rows;
+  return {
+    ...i,
+    internos: internos ?? null,
+    podeEditar: editar,
+    fotos: arquivos.filter((f) => f.categoria === "foto"),
+    documentos: editar
+      ? arquivos.filter((f) => f.categoria === "documento")
+      : [],
+  };
+}
+const filtros = z.object({
+  busca: z.string().max(160).optional(),
+  cidade: z.string().max(120).optional(),
+  bairro: z.string().max(120).optional(),
+  tipo: z
+    .enum(["casa", "apartamento", "terreno", "comercial", "rural", "outro"])
+    .optional(),
+  situacao: z
+    .enum(["rascunho", "disponivel", "reservado", "vendido", "arquivado"])
+    .optional(),
+  responsavelId: z.string().max(100).optional(),
+  pagina: z.coerce.number().int().min(1).max(100000).default(1),
+});
+export async function listarImoveis(
+  a: Ator,
+  entrada: FiltroImoveis,
+): Promise<Pagina<ImovelBase>> {
+  const f = filtros.parse(
+    Object.fromEntries(Object.entries(entrada).filter(([, v]) => v !== "")),
+  );
+  const parametros: unknown[] = [a.id, a.perfil];
+  const condicoes = [
+    "($2='gestor' OR responsavel_id=$1 OR situacao IN ('disponivel','reservado'))",
+  ];
+  const add = (sql: string, v: unknown) => {
+    parametros.push(v);
+    condicoes.push(sql.replace("?", String(parametros.length)));
+  };
+  for (const chave of ["cidade", "bairro", "tipo"] as const)
+    if (f[chave])
+      add(
+        "campos->>'" + chave + "' ILIKE $?",
+        f[chave]!.replace(/[\\%_]/g, "\\$&"),
+      );
+  if (f.situacao) add("situacao=$?", f.situacao);
+  if (f.responsavelId) add("responsavel_id=$?", f.responsavelId);
+  if (f.busca) {
+    parametros.push("%" + f.busca.replace(/[\\%_]/g, "\\$&") + "%");
+    const n = parametros.length;
+    condicoes.push(
+      "(codigo ILIKE $" +
+        n +
+        " OR campos->>'titulo' ILIKE $" +
+        n +
+        " OR campos->>'cidade' ILIKE $" +
+        n +
+        " OR campos->>'bairro' ILIKE $" +
+        n +
+        ")",
+    );
+  }
+  const where = " WHERE " + condicoes.join(" AND ");
+  const total = Number(
+    (await banco.query("SELECT count(*) FROM imoveis" + where, parametros))
+      .rows[0].count,
+  );
+  parametros.push((f.pagina - 1) * 30);
+  const r = await banco.query(
+    "SELECT " +
+      selecionar +
+      " FROM imoveis" +
+      where +
+      " ORDER BY atualizado_em DESC,id DESC LIMIT 30 OFFSET $" +
+      parametros.length,
+    parametros,
+  );
+  return { itens: r.rows.map(mapear), pagina: f.pagina, total };
+}
+export async function listarHistorico(
+  a: Ator,
+  id: string,
+): Promise<Historico[]> {
+  const i = await obterImovel(a, id);
+  if (!i.podeEditar)
+    throw new ErroDominio("NAO_ENCONTRADO", "Histórico não encontrado.");
+  const r = await banco.query(
+    'SELECT h.id,u.name AS "autorNome",h.acao,h.data,h.campos AS "camposAlterados",h.anterior_id AS "anteriorId",h.novo_id AS "novoId" FROM historico h LEFT JOIN "user" u ON u.id=h.autor_id WHERE entidade_id=$1 ORDER BY data DESC,id DESC LIMIT 100',
+    [id],
+  );
+  return r.rows;
+}

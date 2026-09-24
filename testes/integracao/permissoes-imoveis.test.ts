@@ -1,2 +1,41 @@
-import {test,expect,afterAll} from 'vitest';import {criarCenario} from '../apoio/cenario';import {banco} from '../../src/servidor/banco';import {camposIniciais,internosVazios} from '../../src/imoveis/padroes';import {obterImovel,listarImoveis} from '../../src/imoveis/consulta';afterAll(()=>banco.end());
-test('consulta e busca nunca incluem dados internos de outro corretor',async()=>{const c=await criarCenario();try{const r=await banco.query("INSERT INTO imoveis(responsavel_id,situacao,campos) VALUES($1,'disponivel',$2) RETURNING id",[c.corretorA.id,camposIniciais('casa','Cidade de Teste')]);const id=r.rows[0].id;await banco.query('INSERT INTO imoveis_internos VALUES($1,$2)',[id,{...internosVazios,proprietarioNome:'PROPRIETARIO_EXCLUSIVO_TESTE'}]);const a={id:c.corretorB.id,perfil:'corretor' as const};expect(JSON.stringify(await obterImovel(a,id))).not.toContain('PROPRIETARIO_EXCLUSIVO_TESTE');expect((await listarImoveis(a,{pagina:1,busca:'PROPRIETARIO_EXCLUSIVO_TESTE'})).total).toBe(0);await banco.query("UPDATE imoveis SET situacao='rascunho' WHERE id=$1",[id]);await expect(obterImovel(a,id)).rejects.toMatchObject({codigo:'NAO_ENCONTRADO'});expect((await listarImoveis(a,{pagina:1})).total).toBe(0)}finally{await c.limpar()}})
+import { test, expect, afterAll } from "vitest";
+import { criarCenario } from "../apoio/cenario";
+import { banco } from "../../src/servidor/banco";
+import { camposIniciais, internosVazios } from "../../src/imoveis/padroes";
+import { obterImovel, listarImoveis } from "../../src/imoveis/consulta";
+afterAll(() => banco.end());
+test("consulta e busca nunca incluem dados internos de outro corretor", async () => {
+  const c = await criarCenario();
+  try {
+    const r = await banco.query(
+      "INSERT INTO imoveis(responsavel_id,situacao,campos) VALUES($1,'disponivel',$2) RETURNING id",
+      [c.corretorA.id, camposIniciais("casa", "Cidade de Teste")],
+    );
+    const id = r.rows[0].id;
+    await banco.query("INSERT INTO imoveis_internos VALUES($1,$2)", [
+      id,
+      { ...internosVazios, proprietarioNome: "PROPRIETARIO_EXCLUSIVO_TESTE" },
+    ]);
+    const a = { id: c.corretorB.id, perfil: "corretor" as const };
+    expect(JSON.stringify(await obterImovel(a, id))).not.toContain(
+      "PROPRIETARIO_EXCLUSIVO_TESTE",
+    );
+    expect(
+      (
+        await listarImoveis(a, {
+          pagina: 1,
+          busca: "PROPRIETARIO_EXCLUSIVO_TESTE",
+        })
+      ).total,
+    ).toBe(0);
+    await banco.query("UPDATE imoveis SET situacao='rascunho' WHERE id=$1", [
+      id,
+    ]);
+    await expect(obterImovel(a, id)).rejects.toMatchObject({
+      codigo: "NAO_ENCONTRADO",
+    });
+    expect((await listarImoveis(a, { pagina: 1 })).total).toBe(0);
+  } finally {
+    await c.limpar();
+  }
+});

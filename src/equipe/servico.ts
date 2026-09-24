@@ -1,7 +1,231 @@
-import 'server-only';import {z} from 'zod';import {transacao,type Tx} from '../servidor/banco';import {bloquearAtor,exigirGestor} from '../acesso/ator';import {membroPorId} from '../acesso/provisionar';import {executarUmaVez} from '../servidor/operacoes';import {ErroDominio} from '../compartilhado/erros';import {bloquearImovel,registrar} from '../imoveis/gravacao';import {obterImovel} from '../imoveis/consulta';import type {Ator,AlterarPerfil,DesativarMembro,TransferirImovel} from '../compartilhado/contratos';
-const base=z.object({operacaoId:z.uuid(),versao:z.number().int().positive()});
-async function bloquear(tx:Tx,ator:Ator,ids:string[]){await tx.query('SELECT id FROM controle_equipe WHERE id=1 FOR UPDATE');await tx.query('SELECT id FROM membros WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE',[[ator.id,...ids]]);const a=await bloquearAtor(tx,ator.id);exigirGestor(a);return a}
-async function preservarGestor(tx:Tx,id:string){const m=await membroPorId(tx,id);if(m.perfil==='gestor'&&m.estado==='ativo'&&Number((await tx.query("SELECT count(*) FROM membros WHERE perfil='gestor' AND estado='ativo'")).rows[0].count)<=1)throw new ErroDominio('ULTIMO_GESTOR','Mantenha pelo menos um gestor ativo.');return m}
-export async function alterarPerfil(ator:Ator,id:string,entrada:AlterarPerfil){const d=base.extend({perfil:z.enum(['gestor','corretor'])}).strict().parse(entrada);return transacao(async tx=>{const a=await bloquear(tx,ator,[id]);return executarUmaVez(tx,a.id,d.operacaoId,'perfil',id,d,async()=>{const m=await membroPorId(tx,id);if(m.versao!==d.versao)throw new ErroDominio('CONFLITO','O integrante foi alterado. Atualize a lista.');if(d.perfil==='corretor')await preservarGestor(tx,id);await tx.query('UPDATE membros SET perfil=$1,versao=versao+1 WHERE id=$2',[d.perfil,id]);await registrar(tx,a,id,'perfil alterado',['perfil'],m.perfil,d.perfil);const valor=await membroPorId(tx,id);return {resultadoId:id,versao:valor.versao,valor}},id=>membroPorId(tx,id))})}
-export async function desativarMembro(ator:Ator,id:string,entrada:DesativarMembro){const d=base.extend({destinoId:z.string().min(1).optional()}).strict().parse(entrada);return transacao(async tx=>{const a=await bloquear(tx,ator,[id,...(d.destinoId?[d.destinoId]:[])]);return executarUmaVez(tx,a.id,d.operacaoId,'desativar',id,d,async()=>{const m=await preservarGestor(tx,id);if(m.versao!==d.versao||m.estado==='inativo')throw new ErroDominio('CONFLITO','O integrante foi alterado. Atualize a lista.');const imoveis=(await tx.query('SELECT id FROM imoveis WHERE responsavel_id=$1 ORDER BY id FOR UPDATE',[id])).rows;if(imoveis.length&&!d.destinoId)throw new ErroDominio('INVALIDO','Escolha quem receberá os imóveis.');if(d.destinoId){const destino=await membroPorId(tx,d.destinoId);if(destino.id===id||destino.estado!=='ativo')throw new ErroDominio('INVALIDO','Escolha outro integrante ativo.')}if(imoveis.length){await tx.query('UPDATE imoveis SET responsavel_id=$1,versao=versao+1,atualizado_em=now() WHERE responsavel_id=$2',[d.destinoId,id]);for(const i of imoveis)await registrar(tx,a,i.id,'responsável transferido',[],id,d.destinoId!)}await tx.query("UPDATE membros SET estado='inativo',versao=versao+1 WHERE id=$1",[id]);await tx.query('DELETE FROM "session" WHERE "userId"=$1',[id]);await tx.query("DELETE FROM verification WHERE value=$1 AND identifier LIKE 'reset-password:%'",[id]);await registrar(tx,a,id,'acesso desativado',[],id,d.destinoId??null);const membro=await membroPorId(tx,id);return {resultadoId:id,versao:membro.versao,valor:{membro,imoveisTransferidos:imoveis.length}}},async id=>({membro:await membroPorId(tx,id),imoveisTransferidos:0}))})}
-export async function transferirImovel(ator:Ator,id:string,entrada:TransferirImovel){const d=base.extend({destinoId:z.string().min(1)}).strict().parse(entrada);return transacao(async tx=>{const a=await bloquear(tx,ator,[d.destinoId]);return executarUmaVez(tx,a.id,d.operacaoId,'transferir-imovel',id,d,async()=>{if((await membroPorId(tx,d.destinoId)).estado!=='ativo')throw new ErroDominio('INVALIDO','Escolha um integrante ativo.');const i=await bloquearImovel(tx,a,id,d.versao);await tx.query('UPDATE imoveis SET responsavel_id=$1,versao=versao+1,atualizado_em=now() WHERE id=$2',[d.destinoId,id]);await registrar(tx,a,id,'responsável transferido',[],i.responsavelId,d.destinoId);const valor=await obterImovel(a,id,tx);return {resultadoId:id,versao:valor.versao,valor}},id=>obterImovel(a,id,tx))})}
+import "server-only";
+import { z } from "zod";
+import { transacao, type Tx } from "../servidor/banco";
+import { bloquearAtor, exigirGestor } from "../acesso/ator";
+import { membroPorId } from "../acesso/provisionar";
+import { executarUmaVez } from "../servidor/operacoes";
+import { ErroDominio } from "../compartilhado/erros";
+import { bloquearImovel, registrar } from "../imoveis/gravacao";
+import { obterImovel } from "../imoveis/consulta";
+import type {
+  Ator,
+  AlterarPerfil,
+  DesativarMembro,
+  TransferirImovel,
+} from "../compartilhado/contratos";
+const base = z.object({
+  operacaoId: z.uuid(),
+  versao: z.number().int().positive(),
+});
+async function bloquear(tx: Tx, ator: Ator, ids: string[]) {
+  await tx.query("SELECT id FROM controle_equipe WHERE id=1 FOR UPDATE");
+  await tx.query(
+    "SELECT id FROM membros WHERE id=ANY($1::text[]) ORDER BY id FOR UPDATE",
+    [[ator.id, ...ids]],
+  );
+  const a = await bloquearAtor(tx, ator.id);
+  exigirGestor(a);
+  return a;
+}
+async function preservarGestor(tx: Tx, id: string) {
+  const m = await membroPorId(tx, id);
+  if (
+    m.perfil === "gestor" &&
+    m.estado === "ativo" &&
+    Number(
+      (
+        await tx.query(
+          "SELECT count(*) FROM membros WHERE perfil='gestor' AND estado='ativo'",
+        )
+      ).rows[0].count,
+    ) <= 1
+  )
+    throw new ErroDominio(
+      "ULTIMO_GESTOR",
+      "Mantenha pelo menos um gestor ativo.",
+    );
+  return m;
+}
+export async function alterarPerfil(
+  ator: Ator,
+  id: string,
+  entrada: AlterarPerfil,
+) {
+  const d = base
+    .extend({ perfil: z.enum(["gestor", "corretor"]) })
+    .strict()
+    .parse(entrada);
+  return transacao(async (tx) => {
+    const a = await bloquear(tx, ator, [id]);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "perfil",
+      id,
+      d,
+      async () => {
+        const m = await membroPorId(tx, id);
+        if (m.versao !== d.versao)
+          throw new ErroDominio(
+            "CONFLITO",
+            "O integrante foi alterado. Atualize a lista.",
+          );
+        if (d.perfil === "corretor") await preservarGestor(tx, id);
+        await tx.query(
+          "UPDATE membros SET perfil=$1,versao=versao+1 WHERE id=$2",
+          [d.perfil, id],
+        );
+        await registrar(
+          tx,
+          a,
+          id,
+          "perfil alterado",
+          ["perfil"],
+          m.perfil,
+          d.perfil,
+        );
+        const valor = await membroPorId(tx, id);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => membroPorId(tx, id),
+    );
+  });
+}
+export async function desativarMembro(
+  ator: Ator,
+  id: string,
+  entrada: DesativarMembro,
+) {
+  const d = base
+    .extend({ destinoId: z.string().min(1).optional() })
+    .strict()
+    .parse(entrada);
+  return transacao(async (tx) => {
+    const a = await bloquear(tx, ator, [
+      id,
+      ...(d.destinoId ? [d.destinoId] : []),
+    ]);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "desativar",
+      id,
+      d,
+      async () => {
+        const m = await preservarGestor(tx, id);
+        if (m.versao !== d.versao || m.estado === "inativo")
+          throw new ErroDominio(
+            "CONFLITO",
+            "O integrante foi alterado. Atualize a lista.",
+          );
+        const imoveis = (
+          await tx.query(
+            "SELECT id FROM imoveis WHERE responsavel_id=$1 ORDER BY id FOR UPDATE",
+            [id],
+          )
+        ).rows;
+        if (imoveis.length && !d.destinoId)
+          throw new ErroDominio(
+            "INVALIDO",
+            "Escolha quem receberá os imóveis.",
+          );
+        if (d.destinoId) {
+          const destino = await membroPorId(tx, d.destinoId);
+          if (destino.id === id || destino.estado !== "ativo")
+            throw new ErroDominio(
+              "INVALIDO",
+              "Escolha outro integrante ativo.",
+            );
+        }
+        if (imoveis.length) {
+          await tx.query(
+            "UPDATE imoveis SET responsavel_id=$1,versao=versao+1,atualizado_em=now() WHERE responsavel_id=$2",
+            [d.destinoId, id],
+          );
+          for (const i of imoveis)
+            await registrar(
+              tx,
+              a,
+              i.id,
+              "responsável transferido",
+              [],
+              id,
+              d.destinoId!,
+            );
+        }
+        await tx.query(
+          "UPDATE membros SET estado='inativo',versao=versao+1 WHERE id=$1",
+          [id],
+        );
+        await tx.query('DELETE FROM "session" WHERE "userId"=$1', [id]);
+        await tx.query(
+          "DELETE FROM verification WHERE value=$1 AND identifier LIKE 'reset-password:%'",
+          [id],
+        );
+        await registrar(
+          tx,
+          a,
+          id,
+          "acesso desativado",
+          [],
+          id,
+          d.destinoId ?? null,
+        );
+        const membro = await membroPorId(tx, id);
+        return {
+          resultadoId: id,
+          versao: membro.versao,
+          valor: { membro, imoveisTransferidos: imoveis.length },
+        };
+      },
+      async (id) => ({
+        membro: await membroPorId(tx, id),
+        imoveisTransferidos: 0,
+      }),
+    );
+  });
+}
+export async function transferirImovel(
+  ator: Ator,
+  id: string,
+  entrada: TransferirImovel,
+) {
+  const d = base
+    .extend({ destinoId: z.string().min(1) })
+    .strict()
+    .parse(entrada);
+  return transacao(async (tx) => {
+    const a = await bloquear(tx, ator, [d.destinoId]);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "transferir-imovel",
+      id,
+      d,
+      async () => {
+        if ((await membroPorId(tx, d.destinoId)).estado !== "ativo")
+          throw new ErroDominio("INVALIDO", "Escolha um integrante ativo.");
+        const i = await bloquearImovel(tx, a, id, d.versao);
+        await tx.query(
+          "UPDATE imoveis SET responsavel_id=$1,versao=versao+1,atualizado_em=now() WHERE id=$2",
+          [d.destinoId, id],
+        );
+        await registrar(
+          tx,
+          a,
+          id,
+          "responsável transferido",
+          [],
+          i.responsavelId,
+          d.destinoId,
+        );
+        const valor = await obterImovel(a, id, tx);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => obterImovel(a, id, tx),
+    );
+  });
+}

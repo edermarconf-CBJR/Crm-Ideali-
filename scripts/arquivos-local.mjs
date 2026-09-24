@@ -1,1 +1,41 @@
-import {randomBytes} from 'node:crypto';import {readFileSync,appendFileSync,mkdirSync,openSync} from 'node:fs';import {loadEnvFile} from 'node:process';import {spawn} from 'node:child_process';loadEnvFile('.env.local');if(!process.env.S3_ACCESS_KEY){appendFileSync('.env.local','S3_ENDPOINT=http://127.0.0.1:8333\nS3_REGION=us-east-1\nS3_BUCKET=ideali-privado\nS3_ACCESS_KEY='+randomBytes(18).toString('hex')+'\nS3_SECRET_KEY='+randomBytes(32).toString('hex')+'\n');loadEnvFile('.env.local')}mkdirSync('.dados/objetos',{recursive:true});const log=openSync('.dados/objetos.log','a');const filho=spawn('.dados/ferramentas/seaweed/weed.exe',['mini','-dir=.dados/objetos','-ip=127.0.0.1','-ip.bind=127.0.0.1','-bucket=ideali-privado','-s3.port=8333'],{env:{...process.env,AWS_ACCESS_KEY_ID:process.env.S3_ACCESS_KEY,AWS_SECRET_ACCESS_KEY:process.env.S3_SECRET_KEY},windowsHide:true,stdio:['ignore',log,log]});filho.on('error',e=>console.error(e.message));filho.on('exit',code=>process.exit(code??1));console.log('Armazenamento local iniciado com acesso autenticado.');
+import { randomBytes } from "node:crypto";
+import { readFileSync, appendFileSync, mkdirSync, openSync } from "node:fs";
+import { loadEnvFile } from "node:process";
+import { spawn } from "node:child_process";
+loadEnvFile(".env.local");
+if (!process.env.S3_ACCESS_KEY) {
+  appendFileSync(
+    ".env.local",
+    "S3_ENDPOINT=http://127.0.0.1:8333\nS3_REGION=us-east-1\nS3_BUCKET=ideali-privado\nS3_ACCESS_KEY=" +
+      randomBytes(18).toString("hex") +
+      "\nS3_SECRET_KEY=" +
+      randomBytes(32).toString("hex") +
+      "\n",
+  );
+  loadEnvFile(".env.local");
+}
+mkdirSync(".dados/objetos", { recursive: true });
+const log = openSync(".dados/objetos.log", "a");
+const filho = spawn(
+  ".dados/ferramentas/seaweed/weed.exe",
+  [
+    "mini",
+    "-dir=.dados/objetos",
+    "-ip=127.0.0.1",
+    "-ip.bind=127.0.0.1",
+    "-bucket=ideali-privado",
+    "-s3.port=8333",
+  ],
+  {
+    env: {
+      ...process.env,
+      AWS_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY,
+      AWS_SECRET_ACCESS_KEY: process.env.S3_SECRET_KEY,
+    },
+    windowsHide: true,
+    stdio: ["ignore", log, log],
+  },
+);
+filho.on("error", (e) => console.error(e.message));
+filho.on("exit", (code) => process.exit(code ?? 1));
+console.log("Armazenamento local iniciado com acesso autenticado.");

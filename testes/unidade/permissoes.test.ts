@@ -1,2 +1,20 @@
-import {test,expect} from 'vitest';import {podeConsultar,podeEditar} from '../../src/imoveis/politica';import type {ImovelBase,Situacao} from '../../src/compartilhado/contratos';
-for(const situacao of ['rascunho','disponivel','reservado','vendido','arquivado'] as Situacao[]){test('outro corretor: '+situacao,()=>{const imovel={responsavelId:'a',situacao} as ImovelBase;expect(podeConsultar({id:'b',perfil:'corretor'},imovel)).toBe(['disponivel','reservado'].includes(situacao));expect(podeEditar({id:'b',perfil:'corretor'},imovel)).toBe(false);expect(podeConsultar({id:'a',perfil:'corretor'},imovel)).toBe(true);expect(podeEditar({id:'g',perfil:'gestor'},imovel)).toBe(true)})}
+import { test, expect } from "vitest";
+import { podeConsultar, podeEditar } from "../../src/imoveis/politica";
+import type { ImovelBase, Situacao } from "../../src/compartilhado/contratos";
+for (const situacao of [
+  "rascunho",
+  "disponivel",
+  "reservado",
+  "vendido",
+  "arquivado",
+] as Situacao[]) {
+  test("outro corretor: " + situacao, () => {
+    const imovel = { responsavelId: "a", situacao } as ImovelBase;
+    expect(podeConsultar({ id: "b", perfil: "corretor" }, imovel)).toBe(
+      ["disponivel", "reservado"].includes(situacao),
+    );
+    expect(podeEditar({ id: "b", perfil: "corretor" }, imovel)).toBe(false);
+    expect(podeConsultar({ id: "a", perfil: "corretor" }, imovel)).toBe(true);
+    expect(podeEditar({ id: "g", perfil: "gestor" }, imovel)).toBe(true);
+  });
+}

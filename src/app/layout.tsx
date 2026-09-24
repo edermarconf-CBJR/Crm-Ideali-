@@ -1,1 +1,13 @@
-import type {Metadata} from 'next';import './globals.css';export const metadata:Metadata={title:'Ideali · CRM',description:'Gestão imobiliária da Ideali'};export default function Layout({children}:{children:React.ReactNode}){return <html lang="pt-BR"><body>{children}</body></html>}
+import type { Metadata } from "next";
+import "./globals.css";
+export const metadata: Metadata = {
+  title: "Ideali · CRM",
+  description: "Gestão imobiliária da Ideali",
+};
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="pt-BR">
+      <body>{children}</body>
+    </html>
+  );
+}
