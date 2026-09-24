@@ -28,3 +28,4 @@ Tarefa 1: fundação verificada — 8/8 testes passaram; build Next e TypeScript
 Ruling: PostgreSQL 17.10 portátil substitui o contêiner local ausente — banco real, isolado e ligado somente a 127.0.0.1; custo se errado: revisar inicialização local, sem mudar o modelo de produção.
 Ruling: testes iniciais chamam os handlers HTTP reais com Requests e banco real; execução do navegador fica no conjunto Playwright — custo se errado: diferenças de transporte serão cobertas pelas jornadas do navegador.
 Tarefa 2: em execução.
+Tarefa 2: núcleo de convites testado (9/9 no conjunto, TypeScript sem erros). Telas e casos de recuperação serão concluídos antes do fechamento. Tarefa 3 em execução.

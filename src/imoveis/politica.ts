@@ -1,0 +1,1 @@
+import type {Ator,ImovelBase} from '../compartilhado/contratos';export function podeConsultar(a:Ator,i:ImovelBase){return true}export function podeEditar(a:Ator,i:ImovelBase){return true}
