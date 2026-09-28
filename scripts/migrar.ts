@@ -1,8 +1,8 @@
+import { definirAmbienteTeste } from "./ambiente-teste.mjs";
 import { loadEnvFile } from "node:process";
 import { readdir, readFile } from "node:fs/promises";
 loadEnvFile(".env.local");
-if (process.argv.includes("--teste"))
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+if (process.argv.includes("--teste")) definirAmbienteTeste();
 const { banco, transacao } = await import("../src/servidor/banco");
 await transacao(async (tx) => {
   await tx.query("SELECT pg_advisory_xact_lock(739120)");

@@ -85,6 +85,16 @@ export default function Editor({
   const [atual, setAtual] = useState<ImovelDetalhe | null>(null);
   const [destino, setDestino] = useState(inicial.responsavelId);
   const [historico, setHistorico] = useState<Historico[] | null>(null);
+  function receberAtualizacao(d: ImovelDetalhe) {
+    if (JSON.stringify(formulario(d)) !== JSON.stringify(formulario(i))) {
+      setAtual(d);
+      setErro(
+        "O cadastro mudou enquanto você enviava arquivos. Confira as diferenças antes de salvar.",
+      );
+      return;
+    }
+    setI(d);
+  }
   function mudar(k: string, v: string) {
     setF((x) => ({ ...x, [k]: v }));
     setOp(crypto.randomUUID());
@@ -98,7 +108,7 @@ export default function Editor({
     try {
       const bruto: Record<string, unknown> = {};
       for (const k of Object.keys(camposIniciais(i.tipo, i.cidade))) {
-        const v = f[k] ?? "";
+        const v = (f[k] ?? "").trim();
         bruto[k] = moedas.includes(k)
           ? moedaParaCentavos(v)
           : inteiros.includes(k)
@@ -362,9 +372,15 @@ export default function Editor({
             )}
           </>
         )}
+        <div hidden={aba !== 1}>
+          <Arquivos
+            imovel={i}
+            categoria="foto"
+            atualizar={receberAtualizacao}
+          />
+        </div>
         {aba === 1 && (
           <>
-            <Arquivos imovel={i} categoria="foto" atualizar={setI} />
             <div className="divisor" />
             <h2>Conteúdo do anúncio</h2>
             <p className="muted">
@@ -396,13 +412,17 @@ export default function Editor({
                 </>
               )}
             </div>
-            {i.podeEditar && (
-              <>
-                <div className="divisor" />
-                <Arquivos imovel={i} categoria="documento" atualizar={setI} />
-              </>
-            )}
           </>
+        )}
+        {i.podeEditar && (
+          <div hidden={aba !== 2}>
+            <div className="divisor" />
+            <Arquivos
+              imovel={i}
+              categoria="documento"
+              atualizar={receberAtualizacao}
+            />
+          </div>
         )}
         {i.podeEditar && (
           <div className="acoes-form">

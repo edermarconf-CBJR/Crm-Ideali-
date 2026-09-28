@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3100",
-    "build": "next build",
-    "start": "next start --hostname 127.0.0.1 --port 3100",
+    "build": "node scripts/construir.mjs",
+    "start": "node scripts/servir.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:unidade": "node scripts/testar.mjs testes/unidade",
@@ -28,6 +28,7 @@
     "better-auth": "1.7.5",
     "next": "16.3.6",
     "nodemailer": "10.0.10",
+    "pdf-lib": "1.17.1",
     "pg": "8.23.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

@@ -1,7 +1,8 @@
+import { definirAmbienteTeste } from "./scripts/ambiente-teste.mjs";
 import { defineConfig } from "@playwright/test";
 import { loadEnvFile } from "node:process";
 loadEnvFile(".env.local");
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+definirAmbienteTeste();
 process.env.APP_ORIGIN = "http://127.0.0.1:3101";
 export default defineConfig({
   testDir: "testes/telas",

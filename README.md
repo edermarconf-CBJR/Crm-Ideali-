@@ -2,6 +2,8 @@
 
 Aplicação local em português para avaliar cadastro de imóveis e gestão da equipe. Next.js 16, React 19, Node 24, PostgreSQL 17, Better Auth e arquivos privados S3. A construção foi autorizada com revisão independente ao final.
 
+Entrega local verificada em 28/09/2026. Veja o [guia de uso](docs/guia-local.md), o [relatório da revisão](docs/revisao-final.md) e o [roteiro de avaliação](docs/avaliacao-parte-1.md). Na pasta CRM Ideali, use os atalhos Abrir CRM Ideali.cmd e Ver acessos de demonstracao.cmd.
+
 ## O que esta entrega cobre
 
 Conta individual por convite, recuperação de acesso, perfis Gestor/Corretor, catálogo compartilhado, rascunho com tipo/cidade, informações internas restritas, fotos/capa/ordem, documentos, histórico, transferência e desativação com preservação dos vínculos. Não existe limite fixo de onze integrantes. Gravações usam versão e identificador de operação para evitar perda silenciosa ou duplicação em reenvio.
@@ -23,6 +25,8 @@ A demonstração usa exclusivamente dados fictícios: `npm run demonstracao`, so
 ## Testes
 
 `npm test` migra automaticamente a base definida em TEST_DATABASE_URL, que deve terminar em `_teste`. É destrutivo APENAS nessa base de teste. Nunca aponte TEST_DATABASE_URL para a base de uso.
+
+Configuração, servidor e fixtures recusam a base operacional; antes da limpeza, a fixture confere também o banco realmente conectado. Resultado final: 31 testes de unidade/integração e nove jornadas de navegador passaram. TypeScript e build passaram; lint teve zero erros e seis avisos detalhados no relatório.
 
 Com PostgreSQL, S3 e Mailpit ativos: `npm run test:unidade`, `npm run test:integracao`. Para telas, abra `node scripts/servidor-testes.mjs` e execute `npm run test:telas`; requer Google Chrome instalado. Não execute a suíte de integração ao mesmo tempo que a de telas: ambas usam a base fictícia. Complete com `npm run typecheck`, `npm run lint` e `npm run build`.
 

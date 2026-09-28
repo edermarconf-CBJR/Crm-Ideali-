@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import { PDFDocument } from "pdf-lib";
 import { ErroDominio } from "../compartilhado/erros";
 import type { AdicionarArquivo } from "../compartilhado/contratos";
 export async function validarArquivo(
@@ -14,16 +15,22 @@ export async function validarArquivo(
     );
   const nome =
     d.nome.replace(/[\r\n<>:"/\\|?*\x00-\x1f]/g, "").slice(0, 160) || "arquivo";
-  if (
-    d.categoria === "documento" &&
-    Buffer.from(d.bytes.subarray(0, 5)).toString() === "%PDF-"
-  )
-    return {
-      bytes: d.bytes,
-      mime: "application/pdf",
-      nome: nome.replace(/\.[^.]+$/, "") + ".pdf",
-    };
   try {
+    if (
+      d.categoria === "documento" &&
+      Buffer.from(d.bytes.subarray(0, 5)).toString() === "%PDF-"
+    ) {
+      const pdf = await PDFDocument.load(d.bytes, {
+        ignoreEncryption: false,
+        throwOnInvalidObject: true,
+      });
+      if (pdf.getPageCount() < 1) throw new Error("PDF sem páginas");
+      return {
+        bytes: d.bytes,
+        mime: "application/pdf",
+        nome: nome.replace(/\.[^.]+$/, "") + ".pdf",
+      };
+    }
     const imagem = sharp(d.bytes, {
       limitInputPixels: 50000000,
       failOn: "warning",
@@ -34,6 +41,17 @@ export async function validarArquivo(
       (d.categoria === "documento" && meta.format === "webp")
     )
       throw new Error("Formato");
+    if (d.categoria === "documento") {
+      // Decodifica integralmente para validar; o arquivo privado original não é alterado.
+      await imagem.stats();
+      return {
+        bytes: d.bytes,
+        mime: meta.format === "png" ? "image/png" : "image/jpeg",
+        nome:
+          nome.replace(/\.[^.]+$/, "") +
+          (meta.format === "png" ? ".png" : ".jpg"),
+      };
+    }
     const bytes = await imagem
       .rotate()
       .resize({
@@ -52,7 +70,7 @@ export async function validarArquivo(
   } catch {
     throw new ErroDominio(
       "INVALIDO",
-      "Arquivo inválido. Use JPG, PNG, WebP para fotos ou PDF para documentos.",
+      "Arquivo inválido ou protegido por senha. Use JPG, PNG ou WebP para fotos; PDF, JPG ou PNG para documentos.",
     );
   }
 }

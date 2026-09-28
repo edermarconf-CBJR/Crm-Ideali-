@@ -31,74 +31,66 @@ export async function adicionarArquivo(
     .parse(d);
   const arquivo = await validarArquivo(d);
   const hash = createHash("sha256").update(d.bytes).digest("hex");
-  let criada: string | null = null;
-  try {
-    return await transacao(async (tx) => {
-      const a = await bloquearAtor(tx, ator.id);
-      return executarUmaVez(
-        tx,
-        a.id,
-        d.operacaoId,
-        "arquivo",
-        id,
-        { ...d, bytes: undefined, hash },
-        async () => {
-          await bloquearImovel(tx, a, id, d.versao);
-          const n = Number(
-            (
-              await tx.query(
-                "SELECT count(*) FROM arquivos WHERE imovel_id=$1 AND categoria=$2 AND removido_em IS NULL",
-                [id, d.categoria],
-              )
-            ).rows[0].count,
+  // Resultado desconhecido de COMMIT não autoriza excluir o objeto.
+  // A manutenção remove somente órfãos antigos depois de consultar as referências.
+  return transacao(async (tx) => {
+    const a = await bloquearAtor(tx, ator.id);
+    return executarUmaVez(
+      tx,
+      a.id,
+      d.operacaoId,
+      "arquivo",
+      id,
+      { ...d, bytes: undefined, hash },
+      async () => {
+        await bloquearImovel(tx, a, id, d.versao);
+        const n = Number(
+          (
+            await tx.query(
+              "SELECT count(*) FROM arquivos WHERE imovel_id=$1 AND categoria=$2 AND removido_em IS NULL",
+              [id, d.categoria],
+            )
+          ).rows[0].count,
+        );
+        if (n >= (d.categoria === "foto" ? 40 : 20))
+          throw new ErroDominio(
+            "LIMITE",
+            "O imóvel atingiu o limite de arquivos.",
           );
-          if (n >= (d.categoria === "foto" ? 40 : 20))
-            throw new ErroDominio(
-              "LIMITE",
-              "O imóvel atingiu o limite de arquivos.",
-            );
-          const arquivoId = randomUUID();
-          const chave =
-            (process.env.DATABASE_URL?.includes("_teste")
-              ? "testes/"
-              : "imoveis/") +
-            id +
-            "/" +
-            arquivoId;
-          await armazenamento.colocar(chave, arquivo.bytes, arquivo.mime);
-          criada = chave;
-          await tx.query(
-            "INSERT INTO arquivos(id,imovel_id,categoria,chave,nome,mime,tamanho,ordem,hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-            [
-              arquivoId,
-              id,
-              d.categoria,
-              chave,
-              arquivo.nome,
-              arquivo.mime,
-              arquivo.bytes.length,
-              n,
-              hash,
-            ],
-          );
-          await tx.query(
-            "UPDATE imoveis SET versao=versao+1,atualizado_em=now(),capa_id=CASE WHEN capa_id IS NULL AND $2='foto' THEN $3::uuid ELSE capa_id END WHERE id=$1",
-            [id, d.categoria, arquivoId],
-          );
-          await registrar(tx, a, id, "arquivo adicionado", [d.categoria]);
-          const valor = await obterImovel(a, id, tx);
-          return { resultadoId: id, versao: valor.versao, valor };
-        },
-        (id) => obterImovel(a, id, tx),
-      );
-    });
-  } catch (e) {
-    if (criada)
-      await armazenamento
-        .remover(criada)
-        .catch(() => console.error("Objeto órfão aguardando limpeza."));
-    throw e;
-  }
+        const arquivoId = randomUUID();
+        const chave =
+          (process.env.DATABASE_URL?.includes("_teste")
+            ? "testes/"
+            : "imoveis/") +
+          id +
+          "/" +
+          arquivoId;
+        await armazenamento.colocar(chave, arquivo.bytes, arquivo.mime);
+        await tx.query(
+          "INSERT INTO arquivos(id,imovel_id,categoria,chave,nome,mime,tamanho,ordem,hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+          [
+            arquivoId,
+            id,
+            d.categoria,
+            chave,
+            arquivo.nome,
+            arquivo.mime,
+            arquivo.bytes.length,
+            n,
+            hash,
+          ],
+        );
+        await tx.query(
+          "UPDATE imoveis SET versao=versao+1,atualizado_em=now(),capa_id=CASE WHEN capa_id IS NULL AND $2='foto' THEN $3::uuid ELSE capa_id END WHERE id=$1",
+          [id, d.categoria, arquivoId],
+        );
+        await registrar(tx, a, id, "arquivo adicionado", [d.categoria]);
+        const valor = await obterImovel(a, id, tx);
+        return { resultadoId: id, versao: valor.versao, valor };
+      },
+      (id) => obterImovel(a, id, tx),
+    );
+  });
 }
 export async function organizarFotos(
   ator: Ator,

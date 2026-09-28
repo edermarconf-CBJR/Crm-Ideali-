@@ -116,7 +116,7 @@ test("entrada real, falha de rede, conflito e arquivos", async ({
     .jpeg()
     .toBuffer();
   await page
-    .locator("input[type=file]")
+    .locator("#arquivos-foto")
     .setInputFiles([
       { name: "foto-ficticia.jpg", mimeType: "image/jpeg", buffer: foto },
     ]);

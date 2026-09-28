@@ -1,3 +1,4 @@
+import { pdfFicticio } from "../apoio/pdf";
 import { test, expect, afterAll } from "vitest";
 import { randomUUID, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -49,7 +50,7 @@ test("backup real restaura banco, arquivos, vínculos e revoga sessões", async 
       categoria: "documento",
       nome: "Ficticio.pdf",
       mimeInformado: "application/pdf",
-      bytes: Buffer.from("%PDF-1.4\n% ficticio\n%%EOF"),
+      bytes: await pdfFicticio(),
     });
     await transferirImovel(a, i.id, {
       operacaoId: randomUUID(),

@@ -1,3 +1,4 @@
+import { pdfFicticio } from "../apoio/pdf";
 import { test, expect, afterAll } from "vitest";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -40,7 +41,7 @@ test("foto compartilhada e documento privado têm acessos diferentes", async () 
       categoria: "documento",
       nome: "teste.pdf",
       mimeInformado: "application/pdf",
-      bytes: new TextEncoder().encode("%PDF-1.4\n% Documento sintético\n%%EOF"),
+      bytes: await pdfFicticio(),
     });
     const doc = i.documentos[0].id;
     i = await trocarSituacao(a, i.id, {
